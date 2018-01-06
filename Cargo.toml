@@ -1,0 +1,7 @@
+[package]
+name = "cue"
+version = "0.1.0"
+authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
+
+[dependencies]
+cursive = "0.7.5"
