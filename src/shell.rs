@@ -1,7 +1,7 @@
 use std::process::*;
 use std::collections::HashMap;
 
-struct Job {
+pub struct Job {
     id: usize,
     process: Child,
 }
@@ -42,7 +42,8 @@ impl Shell {
         jobID
     }
     
-    pub fn get_stdout(&mut self, job: usize) -> &ChildStdout {
-        & self.jobs.get_mut(&job).unwrap().process.stdout.as_ref().unwrap()
+    pub fn get_stdout(&mut self, job: usize) -> &mut ChildStdout {
+        // Could panic at any moment...
+        (&mut (&mut self.jobs.get_mut(&job).unwrap().process).stdout).as_mut().unwrap()
     }
 }
