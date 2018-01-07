@@ -39,7 +39,7 @@ fn show_popup(s: &mut Cursive, name: &str) {
     } else {
         let mut shell = Shell::new();
         let c = shell.exec(name, &[]);
-        let mut out = c.stdout.unwrap();
+        let out = shell.get_stdout(c);
         let mut buf: String = String::new();
         out.read_to_string(&mut buf);
         
