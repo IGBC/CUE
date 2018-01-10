@@ -7,14 +7,14 @@ pub struct Job {
 }
 
 pub struct Shell {
-    nextJobID: usize,
+    next_job_id: usize,
     jobs: HashMap<usize, Job>,
 }
 
 impl Shell {
     pub fn new() -> Shell {
         Shell {
-            nextJobID: 0,
+            next_job_id: 0,
             jobs: HashMap::new(),
         }
     }
@@ -28,18 +28,18 @@ impl Shell {
         
         let a = a.unwrap();
         
-        let jobID = self.nextJobID;
+        let job_id = self.next_job_id;
         
         let job = Job {
-            id: jobID,
+            id: job_id,
             process: a,
         };
         
-        self.nextJobID += 1;
+        self.next_job_id += 1;
         
-        self.jobs.insert(jobID, job);
+        self.jobs.insert(job_id, job);
         
-        jobID
+        job_id
     }
     
     // Stream Getters, seriously don't ask why this works.
