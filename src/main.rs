@@ -19,6 +19,9 @@ use std::os::unix::io::AsRawFd;
 use std::os::unix::io::FromRawFd;
 
 mod shell;
+mod term;
+
+use term::TermView;
 use shell::Shell;
 
 fn main() {
@@ -60,15 +63,21 @@ fn run_cmd(s: &mut Cursive, cmd: &str) {
 
     let mut out = unsafe { File::from_raw_fd(p.master) };
     let mut buf: String = String::new();
-    let mut out = out.bytes();
-    loop {
-        let c = out.next().unwrap().unwrap();
-        io::stdout().write(&[c]);        
-    } 
-    //out.read_to_string(&mut buf);
-    //show_popup(s, &buf);
+    //let mut out = out.bytes();
+    // loop {
+    //     let c = out.next().unwrap().unwrap();
+    //     io::stdout().write(&[c]);        
+    // } 
+    out.read_to_string(&mut buf);
+    show_term(s, &buf);
 }
 
+fn show_term(s: &mut Cursive, data: &str) {
+    let mut t = TermView::new(80,40);
+    t.put_str(data);
+    s.add_layer(Dialog::around(t).button("Quit", |s| s.quit()));
+
+}
 
 fn show_popup(s: &mut Cursive, data: &str) {
     s.pop_layer();
