@@ -5,3 +5,4 @@ authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
 
 [dependencies]
 cursive = "0.7.5"
+nix = "0.9.0"

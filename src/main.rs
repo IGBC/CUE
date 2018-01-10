@@ -1,4 +1,5 @@
 extern crate cursive;
+extern crate nix;
 
 use cursive::Cursive;
 use cursive::views::Dialog;
@@ -6,7 +7,16 @@ use cursive::views::EditView;
 use cursive::views::TextView;
 use cursive::traits::Identifiable;
 use cursive::traits::Boxable;
-use std::io::Read;
+
+use nix::pty;
+
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+
+use std::process::*;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
 
 mod shell;
 use shell::Shell;
@@ -21,7 +31,7 @@ fn main() {
         .title("Command")
         //.padding((1, 1, 1, 0))
         .content(EditView::new()
-            .on_submit(show_popup)
+            .on_submit(run_cmd)
             .with_id("name")
             .fixed_width(20)
             )
@@ -33,18 +43,34 @@ fn main() {
     siv.run();
 }
 
-fn show_popup(s: &mut Cursive, name: &str) {
-    if name.is_empty() {
-        s.add_layer(Dialog::info("No Comment!"));
-    } else {
-        let mut shell = Shell::new();
-        let c = shell.exec(name, &[]);
-        let out = shell.get_stdout(c);
-        let mut buf: String = String::new();
-        out.read_to_string(&mut buf);
-        
-        s.pop_layer();
-        s.add_layer(Dialog::around(TextView::new(buf))
-            .button("Quit", |s| s.quit()));
-    }
+fn run_cmd(s: &mut Cursive, cmd: &str) {
+    let cmd: Vec<&str> = cmd.split_whitespace().collect();
+    
+
+    let p = pty::openpty(None,None).unwrap();
+    let a = unsafe {
+        Command::new(cmd[0]).args(&cmd[1..])
+                 .stdout(Stdio::from_raw_fd(p.slave))
+                 .stderr(Stdio::from_raw_fd(p.slave))
+                 .stdin (Stdio::piped())
+                 .spawn()
+    };
+
+    let a = a.unwrap();
+
+    let mut out = unsafe { File::from_raw_fd(p.master) };
+    let mut buf: String = String::new();
+    let mut out = out.bytes();
+    loop {
+        let c = out.next().unwrap().unwrap();
+        io::stdout().write(&[c]);        
+    } 
+    //out.read_to_string(&mut buf);
+    //show_popup(s, &buf);
+}
+
+
+fn show_popup(s: &mut Cursive, data: &str) {
+    s.pop_layer();
+    s.add_layer(Dialog::around(TextView::new(data)).button("Quit", |s| s.quit()));
 }
