@@ -6,24 +6,30 @@ use cursive::view::View;
 use cursive::event::*;
 use cursive::vec::Vec2;
 
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
 
+use std::thread;
 
 pub struct TermView {
     buffer: Box<[char]>, // Screen Buffer sized width * height
     size: XY<usize>, // Size of window
-    cursor: XY<usize>, // Current postion of the input cursor 
+    cursor: XY<usize>, // Current postion of the input cursor
+    fh: File,
 }
 
 impl TermView {
     /// Creates a new TermView with the given content.
-    pub fn new(w: usize, h: usize) -> Self {
+    pub fn new(w: usize, h: usize, f: File) -> Self {
         let mut v = TermView {
             size: XY::new(w,h),
             buffer: vec![' '; w*h].into_boxed_slice(),
             cursor: XY::new(0,0),
+            fh: f,
         };
-        v.put_str("---No Output---");
-        v.move_cursor(0,0);
+        // this is never gonna work need to research threading
+        //thread::spawn(|| { v.read_loop() });
         v
     }
 
@@ -68,6 +74,19 @@ impl TermView {
             self.put_char(c);
         }
     }
+
+    fn read_loop(&mut self) {
+        let f = self.fh.try_clone().expect("file didn't clone");
+        let mut f = f.bytes();
+        loop {
+            let c = f.next();
+            let c = match c {
+                Some(r) => r.expect("IO::ERROR"),
+                None => break,
+            };
+            self.put_char(c as char);
+        }
+    }
 }
 
 
@@ -86,7 +105,6 @@ impl View for TermView {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        // We have a scrollbar, otherwise the event would just be ignored.
         match event {
             _ => return EventResult::Ignored,
         }
