@@ -11,18 +11,14 @@ use cursive::traits::Boxable;
 use nix::pty;
 
 use std::fs::File;
-use std::io;
-use std::io::prelude::*;
 
 use std::process::*;
-use std::os::unix::io::AsRawFd;
 use std::os::unix::io::FromRawFd;
 
 mod shell;
 mod term;
 
 use term::TermView;
-use shell::Shell;
 
 fn main() {
     let mut siv = Cursive::new();
@@ -61,10 +57,10 @@ fn run_cmd(s: &mut Cursive, cmd: &str) {
 
     let a = a.unwrap();
 
-    let mut outfile = unsafe { File::from_raw_fd(p.master) };
-    let mut infile = outfile.try_clone().expect("file didn't clone");
+    let outfile = unsafe { File::from_raw_fd(p.master) };
+    let infile = outfile.try_clone().expect("file didn't clone");
 
-    let mut t = TermView::new(80,40,outfile,infile);
+    let t = TermView::new(80,40,outfile,infile);
 
     s.add_layer(Dialog::around(t).button("Quit", |s| s.quit()));
 

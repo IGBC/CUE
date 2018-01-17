@@ -7,7 +7,6 @@ use cursive::event::*;
 use cursive::vec::Vec2;
 
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
 
 use std::thread;
@@ -29,7 +28,7 @@ pub struct TermView {
 impl TermView {
     /// Creates a new TermView with the given content.
     pub fn new(w: usize, h: usize, rx: File, tx: File) -> Self {
-        let mut v = TermViewData {
+        let v = TermViewData {
             size: XY::new(w,h),
             buffer: vec![' '; w*h].into_boxed_slice(),
             cursor: XY::new(0,0),
@@ -39,7 +38,7 @@ impl TermView {
 
         let arc = Arc::new(Mutex::new(v));
 
-        let mut term_view = TermView {
+        let term_view = TermView {
             c: Arc::clone(&arc),
         };
         // Create IO thread with reference to mutable data inside thingy.
