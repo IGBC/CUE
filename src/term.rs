@@ -1,23 +1,20 @@
 extern crate cursive;
 
-use cursive::Printer;
-use cursive::XY;
-use cursive::view::View;
+use cursive::{Printer, XY, view};
 use cursive::event::*;
 use cursive::vec::Vec2;
 
+use std::{thread, time};
 use std::fs::File;
+use std::io::Bytes;
 use std::io::prelude::*;
-
-use std::thread;
 use std::sync::{Mutex, Arc};
-use std::time;
 
 struct TermViewData {
     buffer: Box<[char]>, // Screen Buffer sized width * height
     size: XY<usize>, // Size of window
     cursor: XY<usize>, // Current postion of the input cursor
-    rx: File, // File handle to read from
+    rx: Bytes<File>, // File handle to read from
     tx: File, // File handle to write to
 }
 
@@ -28,42 +25,48 @@ pub struct TermView {
 impl TermView {
     /// Creates a new TermView with the given content.
     pub fn new(w: usize, h: usize, rx: File, tx: File) -> Self {
+        // Create inner container that contains all mutable data
         let v = TermViewData {
             size: XY::new(w,h),
             buffer: vec![' '; w*h].into_boxed_slice(),
             cursor: XY::new(0,0),
-            rx: rx,
+            rx: rx.bytes(),
             tx: tx,
         };
 
+        //Atomic Reference Counter wrapping a mutex lets two threads share this data
         let arc = Arc::new(Mutex::new(v));
 
+        //wrapping the ARC in a TermView lets this look like a normal widget to cursive 
         let term_view = TermView {
             c: Arc::clone(&arc),
         };
-        // Create IO thread with reference to mutable data inside thingy.
+
+        // Create IO thread allows updating the buffer without blocking the main thread
         thread::spawn(move || { Self::io_thread(Arc::clone(&arc)); });
         term_view
     }
 
+    // Infinate loop that is always updating the buffer.
     fn io_thread(data: Arc<Mutex<TermViewData>>) {
-        loop {
-            {
-                let mut t = match data.lock() {
-                    Ok(cont) => cont,
-                    Err(_) => continue,
-                };
-                t.read_char();
-                drop(t);
-            } // mutex is cleared here
+        loop { // Do forever
+            let mut t = match data.lock() { // WRONG
+                Ok(cont) => cont,
+                Err(_) => continue, // lock() is a blocking call. this is a different error
+            };
+            t.read_char(); // this is probably blocking.
+            drop(t); // mutex is cleared here
             //sleep one second
-            thread::sleep(time::Duration::new(1,0)); // DEBUG
+            // thread::sleep(time::Duration::new(1,0)); // DEBUG
         }
     }
 }
 
 impl TermViewData {
-    pub fn move_cursor(&mut self, x: usize, y: usize) {
+    /// Moves cursor to given coordinates
+    /// decends at the end of the line
+    /// stalls at the end of the screen (no scrolling)
+    fn move_cursor(&mut self, x: usize, y: usize) {
         let w = self.size.x; 
         let h = self.size.y;
         let mut x = x;
@@ -82,15 +85,21 @@ impl TermViewData {
         self.cursor.y = y;
     }
 
+    /// Returns the character at the given X and Y coodinates
     fn get_char(&self, x: usize, y: usize) -> char {
         self.buffer[(y*self.size.x)+x]
     }
 
-    pub fn put_char(&mut self, c: char) {
+    /// Print given character at the cursor.
+    fn put_char(&mut self, c: char) {
         let x = self.cursor.x;
         let y = self.cursor.y;
+        // matching corner cases here
         match c {
+            // newline is a corner case, nonprintng, just move the cursor
             '\n' => self.move_cursor(0, y+1),
+            
+            // normal case: spit out char then move cursor
             _ => {
                 self.buffer[(y*self.size.x)+x] = c;
                 self.move_cursor(x+1, y);
@@ -99,44 +108,52 @@ impl TermViewData {
         
     }
 
+    /// Helper function to print an entire slice at once.
     pub fn put_str(&mut self, s: &str) {
-        for c in s.chars() {
-            self.put_char(c);
+        for c in s.chars() { // iterate
+            self.put_char(c); // print
         }
     }
 
+    /// Read next byte from rx file handle
     fn read_char(&mut self) {
-        let mut f = self.rx.try_clone().expect("fuckit").bytes(); // WRONG
-        let c = f.next();
-        let c = match c {
+        let c = self.rx.next(); // Get next char from input
+        // is next a blocking call?
+        // Unwrap and skip errors
+        let c = match c { // WRONG
             Some(Ok(r)) => r,
-            Some(Err(_)) => return, // WRONG
+            Some(Err(_)) => return, // This indicates a more serious IO eror. 
             None => return,
         };
+        // cast to character and print.
         self.put_char(c as char);
     }
-}
-impl View for TermViewData {
+
+    /// The renderer, let the TermView Call this.
     fn draw(&self, printer: &Printer) {
-        
         let w = self.size.x;
         let h = self.size.y;
+        // Itterate over the screen x,y
         for x in 0..w {
             for y in 0..h {
+                // print the character at the current x,y
                 printer.print((x,y), &self.get_char(x, y).to_string());
             }
         }
-        //printer.print((0,h+1), &self.buffer);
-        //printer.print((0,h+2), "abcdefghijklmnopqrstuvwxyz1234567890,.-+ABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#ü%&/()=;:_*");
+        // Print Debug information on one extra line.
         printer.print((0,h+1), &format!("len {}", self.buffer.len()))
     }
 
-    fn required_size(&mut self, size: Vec2) -> Vec2 {
-        Vec2::new(self.size.x, self.size.y+2) 
+    fn get_size(&mut self) -> Vec2 {
+        // +2 here adds an extra 2 lines for debug info at the bottom of the term.
+        Vec2::new(self.size.x, self.size.y+2)
     }
 }
 
-impl View for TermView {
+// The implementation is pretty much stubbed out
+// and redirected to functions inside of the TermViewData 
+// where the fields are safely mutexed.
+impl view::View for TermView {
     fn draw(&self, printer: &Printer) {
         let t = self.c.lock().unwrap();
         t.draw(printer);
@@ -149,8 +166,9 @@ impl View for TermView {
         EventResult::Consumed(None)
     }
 
+    #[allow(unused_variables)]
     fn required_size(&mut self, size: Vec2) -> Vec2 {
         let mut t = self.c.lock().unwrap();
-        t.required_size(size)
+        t.get_size()
     }
 }
