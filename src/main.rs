@@ -22,6 +22,8 @@ use term::TermView;
 
 fn main() {
     let mut siv = Cursive::new();
+
+    siv.set_fps(30);
     
     // Create a dialog with an edit text and a button.
     // The user can either hit the <Ok> button,
