@@ -11,28 +11,59 @@ use std::io;
 use std::io::prelude::*;
 
 use std::thread;
+use std::sync::{Mutex, Arc};
+use std::time;
 
-pub struct TermView {
+struct TermViewData {
     buffer: Box<[char]>, // Screen Buffer sized width * height
     size: XY<usize>, // Size of window
     cursor: XY<usize>, // Current postion of the input cursor
-    fh: File,
+    rx: File, // File handle to read from
+    tx: File, // File handle to write to
+}
+
+pub struct TermView {
+    c: Arc<Mutex<TermViewData>> // Mutable data container
 }
 
 impl TermView {
     /// Creates a new TermView with the given content.
-    pub fn new(w: usize, h: usize, f: File) -> Self {
-        let mut v = TermView {
+    pub fn new(w: usize, h: usize, rx: File, tx: File) -> Self {
+        let mut v = TermViewData {
             size: XY::new(w,h),
             buffer: vec![' '; w*h].into_boxed_slice(),
             cursor: XY::new(0,0),
-            fh: f,
+            rx: rx,
+            tx: tx,
         };
-        // this is never gonna work need to research threading
-        //thread::spawn(|| { v.read_loop() });
-        v
+
+        let arc = Arc::new(Mutex::new(v));
+
+        let mut term_view = TermView {
+            c: Arc::clone(&arc),
+        };
+        // Create IO thread with reference to mutable data inside thingy.
+        thread::spawn(move || { Self::io_thread(Arc::clone(&arc)); });
+        term_view
     }
 
+    fn io_thread(data: Arc<Mutex<TermViewData>>) {
+        loop {
+            {
+                let mut t = match data.lock() {
+                    Ok(cont) => cont,
+                    Err(_) => continue,
+                };
+                t.read_char();
+                drop(t);
+            } // mutex is cleared here
+            //sleep one second
+            thread::sleep(time::Duration::new(1,0)); // DEBUG
+        }
+    }
+}
+
+impl TermViewData {
     pub fn move_cursor(&mut self, x: usize, y: usize) {
         let w = self.size.x; 
         let h = self.size.y;
@@ -75,23 +106,20 @@ impl TermView {
         }
     }
 
-    fn read_loop(&mut self) {
-        let f = self.fh.try_clone().expect("file didn't clone");
-        let mut f = f.bytes();
-        loop {
-            let c = f.next();
-            let c = match c {
-                Some(r) => r.expect("IO::ERROR"),
-                None => break,
-            };
-            self.put_char(c as char);
-        }
+    fn read_char(&mut self) {
+        let mut f = self.rx.try_clone().expect("fuckit").bytes(); // WRONG
+        let c = f.next();
+        let c = match c {
+            Some(Ok(r)) => r,
+            Some(Err(_)) => return, // WRONG
+            None => return,
+        };
+        self.put_char(c as char);
     }
 }
-
-
-impl View for TermView {
+impl View for TermViewData {
     fn draw(&self, printer: &Printer) {
+        
         let w = self.size.x;
         let h = self.size.y;
         for x in 0..w {
@@ -104,6 +132,17 @@ impl View for TermView {
         printer.print((0,h+1), &format!("len {}", self.buffer.len()))
     }
 
+    fn required_size(&mut self, size: Vec2) -> Vec2 {
+        Vec2::new(self.size.x, self.size.y+2) 
+    }
+}
+
+impl View for TermView {
+    fn draw(&self, printer: &Printer) {
+        let t = self.c.lock().unwrap();
+        t.draw(printer);
+    }
+
     fn on_event(&mut self, event: Event) -> EventResult {
         match event {
             _ => return EventResult::Ignored,
@@ -112,6 +151,7 @@ impl View for TermView {
     }
 
     fn required_size(&mut self, size: Vec2) -> Vec2 {
-        Vec2::new(self.size.x, self.size.y+2) 
+        let mut t = self.c.lock().unwrap();
+        t.required_size(size)
     }
 }

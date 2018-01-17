@@ -61,9 +61,11 @@ fn run_cmd(s: &mut Cursive, cmd: &str) {
 
     let a = a.unwrap();
 
-    let mut out = unsafe { File::from_raw_fd(p.master) };
+    let mut outfile = unsafe { File::from_raw_fd(p.master) };
+    let mut infile = outfile.try_clone().expect("file didn't clone");
 
-    let mut t = TermView::new(80,40,out);
+    let mut t = TermView::new(80,40,outfile,infile);
+
     s.add_layer(Dialog::around(t).button("Quit", |s| s.quit()));
 
     // let mut buf: String = String::new();
