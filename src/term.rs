@@ -6,7 +6,7 @@ use cursive::vec::Vec2;
 
 use std::{thread, time};
 use std::fs::File;
-use std::io::Bytes;
+use std::io::{self, Write,Bytes};
 use std::io::prelude::*;
 use std::sync::{Mutex, Arc};
 
@@ -96,14 +96,26 @@ impl TermViewData {
         let y = self.cursor.y;
         // matching corner cases here
         match c {
-            // newline is a corner case, nonprintng, just move the cursor
-            '\n' => self.move_cursor(0, y+1),
-            
+            '\x00' => self.move_cursor(x+1, y), // NULL interpet as space
+            '\x01'...'\x06' => (), // nonprinting, ignore
+            '\x07' => (), // TODO: BELL
+            '\x08' => self.move_cursor(x-1, y), // backspace
+            '\x09' => (), // TODO: Tabs
+            '\x0A' => self.move_cursor(0, y+1), // newline 
+            '\x10' => (), // TODO: Find out what a vertical tab is
+            '\x0C' => (), // nonprinting, ignore
+            '\x0D' => self.move_cursor(0, y), // carriage return
+            '\x0E'...'\x1A' => (), // nonprinting, ignore
+            '\x1B' => (), //self.put_str("ESC"), // ESC
+            '\x0C'...'\x1F' => (), // nonprinting, ignore
+            // '\x20'...'\x7E' => printing ascii 
+            '\x7F' => (), // DEL, ignore
+
             // normal case: spit out char then move cursor
             _ => {
                 self.buffer[(y*self.size.x)+x] = c;
                 self.move_cursor(x+1, y);
-            }  
+            }
         };
         
     }
@@ -122,10 +134,12 @@ impl TermViewData {
         // Unwrap and skip errors
         let c = match c { // WRONG
             Some(Ok(r)) => r,
-            Some(Err(_)) => return, // This indicates a more serious IO eror. 
+            Some(Err(_)) => return, // This indicates a more serious IO error. 
             None => return,
         };
+
         // cast to character and print.
+        io::stderr().write(&[c]);
         self.put_char(c as char);
     }
 
