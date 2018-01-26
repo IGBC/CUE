@@ -97,9 +97,17 @@ impl TermViewData {
     /// Returns the character at the given X and Y coodinates
     fn get_char(&self, x: usize, y: usize) -> char {
         self.buffer[(y*self.size.x)+x]
+        
+        // match self.buffer[(y*self.size.x)+x] {
+        //     '\x00'...'\x0F' => 'c',
+        //     '\x20'          => ' ',
+        //     '\x21'...'\x7E' => 'p',
+        //     '\x7F'          => 'd',
+        //     _ => 'U',
+        // }
     }
 
-    fn handle_CSI(&mut self, CSI: &str) {
+    fn handle_csi(&mut self, csi: &str) {
 
     }
 
@@ -123,14 +131,11 @@ impl TermViewData {
                     '\x0E'...'\x1A' => (), // nonprinting, ignore
                     '\x1B' => self.state = TermViewState::ESC, //Jump ESC
                     '\x0C'...'\x1F' => (), // nonprinting, ignore
-                    // '\x20'...'\x7E' => printing ascii 
                     '\x7F' => (), // DEL, ignore
-
-                    // normal case: spit out char then move cursor
-                    _ => {
+                    _ => { // printing ascii and Unicode
                         self.buffer[(y*self.size.x)+x] = c;
                         self.move_cursor(x+1, y);
-                    }
+                    }, 
                 };
             },
 
@@ -150,15 +155,15 @@ impl TermViewData {
                 };
             },
 
-            TermViewState::CSI(cmd) => {
+            TermViewState::CSI(ref cmd) => {
                 match c {
                     '\x00'...'\x1F' => (), // TODO break C0 into a function
                     
-                    '\x30'...'\x3F' => cmd.push(c), //Parameter Bytes - add too string
+                    '\x30'...'\x3F' => (), //cmd.push(c), //Parameter Bytes - add too string
                     '\x40'...'\x7E' => {
-                        cmd.push(c); //add to string
-                        //self.handle_CSI(&cmd.clone()); // CALL
-                        self.state = TermViewState::Printing; //RESET
+                        //cmd.push(c); //add to string
+                        //self.handle_csi(&cmd.clone()); // CALL
+                        //self.state = TermViewState::Printing; //RESET
                     },
 
                     _ => (), // Ignore everything else. 
@@ -186,7 +191,7 @@ impl TermViewData {
         };
 
         // cast to character and print.
-        io::stderr().write(&[c]);
+        //io::stderr().write(&[c]);
         self.put_char(c as char);
     }
 
