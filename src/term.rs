@@ -10,12 +10,20 @@ use std::io::{self, Write,Bytes};
 use std::io::prelude::*;
 use std::sync::{Mutex, Arc};
 
+enum TermViewState {
+    Printing, // Currently printing out normally
+    ESC, // Recieved ESC 
+    CSI(String), // Recieved ESC[ buffering command code
+}
+
 struct TermViewData {
     buffer: Box<[char]>, // Screen Buffer sized width * height
     size: XY<usize>, // Size of window
     cursor: XY<usize>, // Current postion of the input cursor
     rx: Bytes<File>, // File handle to read from
     tx: File, // File handle to write to
+
+    state: TermViewState,
 }
 
 pub struct TermView {
@@ -32,6 +40,7 @@ impl TermView {
             cursor: XY::new(0,0),
             rx: rx.bytes(),
             tx: tx,
+            state: TermViewState::Printing,
         };
 
         //Atomic Reference Counter wrapping a mutex lets two threads share this data
@@ -90,34 +99,72 @@ impl TermViewData {
         self.buffer[(y*self.size.x)+x]
     }
 
+    fn handle_CSI(&mut self, CSI: &str) {
+
+    }
+
     /// Print given character at the cursor.
     fn put_char(&mut self, c: char) {
         let x = self.cursor.x;
         let y = self.cursor.y;
         // matching corner cases here
-        match c {
-            '\x00' => self.move_cursor(x+1, y), // NULL interpet as space
-            '\x01'...'\x06' => (), // nonprinting, ignore
-            '\x07' => (), // TODO: BELL
-            '\x08' => self.move_cursor(x-1, y), // backspace
-            '\x09' => (), // TODO: Tabs
-            '\x0A' => self.move_cursor(0, y+1), // newline 
-            '\x10' => (), // TODO: Find out what a vertical tab is
-            '\x0C' => (), // nonprinting, ignore
-            '\x0D' => self.move_cursor(0, y), // carriage return
-            '\x0E'...'\x1A' => (), // nonprinting, ignore
-            '\x1B' => (), //self.put_str("ESC"), // ESC
-            '\x0C'...'\x1F' => (), // nonprinting, ignore
-            // '\x20'...'\x7E' => printing ascii 
-            '\x7F' => (), // DEL, ignore
+        match self.state {
+            TermViewState::Printing => { 
+                match c {
+                    '\x00' => self.move_cursor(x+1, y), // NULL interpet as space
+                    '\x01'...'\x06' => (), // nonprinting, ignore
+                    '\x07' => (), // TODO: BELL
+                    '\x08' => self.move_cursor(x-1, y), // backspace
+                    '\x09' => (), // TODO: Tabs
+                    '\x0A' => self.move_cursor(0, y+1), // newline 
+                    '\x10' => (), // TODO: Find out what a vertical tab is
+                    '\x0C' => (), // nonprinting, ignore
+                    '\x0D' => self.move_cursor(0, y), // carriage return
+                    '\x0E'...'\x1A' => (), // nonprinting, ignore
+                    '\x1B' => self.state = TermViewState::ESC, //Jump ESC
+                    '\x0C'...'\x1F' => (), // nonprinting, ignore
+                    // '\x20'...'\x7E' => printing ascii 
+                    '\x7F' => (), // DEL, ignore
 
-            // normal case: spit out char then move cursor
-            _ => {
-                self.buffer[(y*self.size.x)+x] = c;
-                self.move_cursor(x+1, y);
-            }
-        };
-        
+                    // normal case: spit out char then move cursor
+                    _ => {
+                        self.buffer[(y*self.size.x)+x] = c;
+                        self.move_cursor(x+1, y);
+                    }
+                };
+            },
+
+            TermViewState::ESC => {
+                match c {
+                    //ESC
+                    '\x1B' => (), //Stay in escape mode
+                    // [
+                    '\x5B' => self.state = TermViewState::CSI(String::from("")),
+                    // ]
+                    // TODO OSI
+
+                    _ => { // Return to printing and then output char
+                        self.state = TermViewState::Printing;
+                        self.put_char(c);
+                    }
+                };
+            },
+
+            TermViewState::CSI(cmd) => {
+                match c {
+                    '\x00'...'\x1F' => (), // TODO break C0 into a function
+                    
+                    '\x30'...'\x3F' => cmd.push(c), //Parameter Bytes - add too string
+                    '\x40'...'\x7E' => {
+                        cmd.push(c); //add to string
+                        //self.handle_CSI(&cmd.clone()); // CALL
+                        self.state = TermViewState::Printing; //RESET
+                    },
+
+                    _ => (), // Ignore everything else. 
+                };
+            },
+        }
     }
 
     /// Helper function to print an entire slice at once.
