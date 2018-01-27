@@ -13,7 +13,7 @@ use std::sync::{Mutex, Arc};
 enum TermViewState {
     Printing, // Currently printing out normally
     ESC, // Recieved ESC 
-    CSI(String), // Recieved ESC[ buffering command code
+    CSI, // Recieved ESC[ buffering command code
 }
 
 struct TermViewData {
@@ -24,6 +24,7 @@ struct TermViewData {
     tx: File, // File handle to write to
 
     state: TermViewState,
+    cmd_string: String,
 }
 
 pub struct TermView {
@@ -41,6 +42,7 @@ impl TermView {
             rx: rx.bytes(),
             tx: tx,
             state: TermViewState::Printing,
+            cmd_string: String::from(""),
         };
 
         //Atomic Reference Counter wrapping a mutex lets two threads share this data
@@ -107,8 +109,27 @@ impl TermViewData {
         // }
     }
 
-    fn handle_csi(&mut self, csi: &str) {
+    fn handle_csi(&mut self, final_char: char) {
+        let cmd = self.cmd_string.clone();        
+        let args: Vec<&str> = cmd.split(|c| c == ';' || c == ':').collect();
+        
+        eprintln!("got code {}{}", cmd, final_char);
+        
+        let mut i_args: Vec<i32> = Vec::new();
+        for x in args {
+            if x == "" {
+                i_args.push(0);
+            } else {
+                let y = x.trim_matches('?');
+                eprintln!("y = {}", y);
+                let i: i32 = y.parse().unwrap();
+                i_args.push(i);
+            }
+        }
+        
 
+
+        self.cmd_string = String::from("");
     }
 
     /// Print given character at the cursor.
@@ -144,26 +165,28 @@ impl TermViewData {
                     //ESC
                     '\x1B' => (), //Stay in escape mode
                     // [
-                    '\x5B' => self.state = TermViewState::CSI(String::from("")),
+                    '\x5B' => {
+                        self.cmd_string = String::from("");
+                        self.state = TermViewState::CSI;
+                    },
                     // ]
                     // TODO OSI
 
                     _ => { // Return to printing and then output char
                         self.state = TermViewState::Printing;
                         self.put_char(c);
-                    }
+                    },
                 };
             },
 
-            TermViewState::CSI(ref cmd) => {
+            TermViewState::CSI => {
                 match c {
                     '\x00'...'\x1F' => (), // TODO break C0 into a function
                     
-                    '\x30'...'\x3F' => (), //cmd.push(c), //Parameter Bytes - add too string
+                    '\x30'...'\x3F' => self.cmd_string.push(c), //Parameter Bytes - add too string
                     '\x40'...'\x7E' => {
-                        //cmd.push(c); //add to string
-                        //self.handle_csi(&cmd.clone()); // CALL
-                        //self.state = TermViewState::Printing; //RESET
+                        self.handle_csi(c); // CALL
+                        self.state = TermViewState::Printing; //RESET
                     },
 
                     _ => (), // Ignore everything else. 
