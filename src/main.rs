@@ -16,9 +16,9 @@ use std::process::*;
 use std::os::unix::io::FromRawFd;
 
 mod shell;
-mod term;
+mod views;
 
-use term::TermView;
+use views::term::TermView;
 
 fn main() {
     let mut siv = Cursive::new();
