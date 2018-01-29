@@ -9,7 +9,7 @@ It takes inspiration from well designed text mode systems over the last 40 years
 Credit: https://ptbd.jwels.berlin/comic/22
 
 ## Features
-######(Planned)
+###### (Planned)
  * Application Launcher
  * Floating & tiling window system.
  * Fully featured file / filesystem manager, with cloud sync.
