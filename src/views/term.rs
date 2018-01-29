@@ -110,26 +110,43 @@ impl TermViewData {
     }
 
     fn handle_csi(&mut self, final_char: char) {
-        let cmd = self.cmd_string.clone();        
+        //Get private flag
+        let mut first_char =  match self.cmd_string.chars().next() {
+            Some('?') => "?",
+            _ => "",
+        };
+
+        // if first character exists strip it from the string.
+        let cmd = match first_char {
+            "" => &self.cmd_string,
+            _ => &self.cmd_string[1..],
+        };        
+
+        // Split Parameters
         let args: Vec<&str> = cmd.split(|c| c == ';' || c == ':').collect();
         
-        eprintln!("got code {}{}", cmd, final_char);
-        
-        let mut i_args: Vec<i32> = Vec::new();
+        //Cast what's left into integers
+        let mut i_args: Vec<Option<i32>> = Vec::new();
         for x in args {
             if x == "" {
-                i_args.push(0);
+                i_args.push(None);
             } else {
-                let y = x.trim_matches('?');
-                eprintln!("y = {}", y);
-                let i: i32 = y.parse().unwrap();
-                i_args.push(i);
+                let f = match x.parse() {
+                    Ok(i) => {
+                        let t: i32 = i;
+                        Some(t)
+                    },
+                    Err(_) => None,
+                };
+                i_args.push(f);
+                
             }
         }
         
-
-
-        self.cmd_string = String::from("");
+        // Match on Command Character
+        match (first_char, i_args.len(), final_char) {
+            _ => eprintln!("Unknown command code: {}[{}]{} from string {}{}", first_char, i_args.len(), final_char, &self.cmd_string, final_char),
+        }
     }
 
     /// Print given character at the cursor.
@@ -186,6 +203,7 @@ impl TermViewData {
                     '\x30'...'\x3F' => self.cmd_string.push(c), //Parameter Bytes - add too string
                     '\x40'...'\x7E' => {
                         self.handle_csi(c); // CALL
+                        self.cmd_string = String::from("");
                         self.state = TermViewState::Printing; //RESET
                     },
 
