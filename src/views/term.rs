@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::{self, Write,Bytes};
 use std::io::prelude::*;
 use std::sync::{Mutex, Arc};
+use std::error::Error;
 
 enum TermViewState {
     Printing, // Currently printing out normally
@@ -63,7 +64,10 @@ impl TermView {
         loop { // Do forever
             let mut t = match data.lock() { // WRONG
                 Ok(cont) => cont,
-                Err(_) => continue, // lock() is a blocking call. this is a different error
+                Err(e) => { // lock() is a blocking call. this is a fatal error
+                    eprintln!("TermView IO thread recieved fatal error{}", e);
+                    return;
+                }, 
             };
             t.read_char(); // this is probably blocking.
             drop(t); // mutex is cleared here
@@ -120,8 +124,8 @@ impl TermViewData {
         let cmd = match first_char {
             "" => &self.cmd_string,
             _ => &self.cmd_string[1..],
-        };        
-
+        };
+        
         // Split Parameters
         let args: Vec<&str> = cmd.split(|c| c == ';' || c == ':').collect();
         
@@ -224,7 +228,7 @@ impl TermViewData {
     fn read_char(&mut self) {
         let c = self.rx.next(); // Get next char from input
         // is next a blocking call?
-        // Unwrap and skip errors
+        // skip errors
         let c = match c { // WRONG
             Some(Ok(r)) => r,
             Some(Err(_)) => return, // This indicates a more serious IO error. 
@@ -262,8 +266,11 @@ impl TermViewData {
 // where the fields are safely mutexed.
 impl view::View for TermView {
     fn draw(&self, printer: &Printer) {
-        let t = self.c.lock().unwrap();
-        t.draw(printer);
+        let t = self.c.lock();
+        match t {
+            Ok(i) => i.draw(printer),
+            Err(e) => printer.print((0,0), e.description()),
+        }
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
@@ -275,7 +282,10 @@ impl view::View for TermView {
 
     #[allow(unused_variables)]
     fn required_size(&mut self, size: Vec2) -> Vec2 {
-        let mut t = self.c.lock().unwrap();
-        t.get_size()
+        let t = self.c.lock();
+        match t {
+            Ok(mut i) => i.get_size(),
+            Err(_) => Vec2::new(80, 42),
+        }
     }
 }
