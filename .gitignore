@@ -15,3 +15,4 @@ Cargo.lock
 ## editor files
 #I use vscode. It's alright 3/5, but good rust intergration.
 /.vscode/
+*.code-workspace
