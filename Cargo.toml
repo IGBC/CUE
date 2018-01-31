@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
 
 [dependencies]
-cursive = "0.7.5"
-nix = "0.9.0"
+cursive = { git = "https://github.com/gyscos/Cursive" }
+nix = "0.10.0"

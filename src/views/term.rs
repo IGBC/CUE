@@ -4,9 +4,9 @@ use cursive::{Printer, XY, view};
 use cursive::event::*;
 use cursive::vec::Vec2;
 
-use std::{thread, time};
+use std::thread;
 use std::fs::File;
-use std::io::{self, Write,Bytes};
+use std::io::{self, Write, Bytes};
 use std::io::prelude::*;
 use std::sync::{Mutex, Arc};
 use std::error::Error;
@@ -71,8 +71,6 @@ impl TermView {
             };
             t.read_char(); // this is probably blocking.
             drop(t); // mutex is cleared here
-            //sleep one second
-            // thread::sleep(time::Duration::new(1,0)); // DEBUG
         }
     }
 }
@@ -115,7 +113,7 @@ impl TermViewData {
 
     fn handle_csi(&mut self, final_char: char) {
         //Get private flag
-        let mut first_char =  match self.cmd_string.chars().next() {
+        let first_char =  match self.cmd_string.chars().next() {
             Some('?') => "?",
             _ => "",
         };
