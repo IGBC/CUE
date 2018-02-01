@@ -1,35 +1,35 @@
 extern crate cursive;
 
-use cursive::{Printer, XY, view};
+use cursive::{view, Printer, XY};
 use cursive::event::*;
 use cursive::vec::Vec2;
 
 use std::thread;
 use std::fs::File;
-use std::io::{self, Write, Bytes};
+use std::io::{self, Bytes, Write};
 use std::io::prelude::*;
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use std::error::Error;
 
 enum TermViewState {
     Printing, // Currently printing out normally
-    ESC, // Recieved ESC 
-    CSI, // Recieved ESC[ buffering command code
+    ESC,      // Recieved ESC
+    CSI,      // Recieved ESC[ buffering command code
 }
 
 struct TermViewData {
     buffer: Box<[char]>, // Screen Buffer sized width * height
-    size: XY<usize>, // Size of window
-    cursor: XY<usize>, // Current postion of the input cursor
-    rx: Bytes<File>, // File handle to read from
-    tx: File, // File handle to write to
+    size: XY<usize>,     // Size of window
+    cursor: XY<usize>,   // Current postion of the input cursor
+    rx: Bytes<File>,     // File handle to read from
+    tx: File,            // File handle to write to
 
     state: TermViewState,
     cmd_string: String,
 }
 
 pub struct TermView {
-    c: Arc<Mutex<TermViewData>> // Mutable data container
+    c: Arc<Mutex<TermViewData>>, // Mutable data container
 }
 
 impl TermView {
@@ -37,9 +37,9 @@ impl TermView {
     pub fn new(w: usize, h: usize, rx: File, tx: File) -> Self {
         // Create inner container that contains all mutable data
         let v = TermViewData {
-            size: XY::new(w,h),
-            buffer: vec![' '; w*h].into_boxed_slice(),
-            cursor: XY::new(0,0),
+            size: XY::new(w, h),
+            buffer: vec![' '; w * h].into_boxed_slice(),
+            cursor: XY::new(0, 0),
             rx: rx.bytes(),
             tx: tx,
             state: TermViewState::Printing,
@@ -49,25 +49,30 @@ impl TermView {
         //Atomic Reference Counter wrapping a mutex lets two threads share this data
         let arc = Arc::new(Mutex::new(v));
 
-        //wrapping the ARC in a TermView lets this look like a normal widget to cursive 
+        //wrapping the ARC in a TermView lets this look like a normal widget to cursive
         let term_view = TermView {
             c: Arc::clone(&arc),
         };
 
         // Create IO thread allows updating the buffer without blocking the main thread
-        thread::spawn(move || { Self::io_thread(Arc::clone(&arc)); });
+        thread::spawn(move || {
+            Self::io_thread(Arc::clone(&arc));
+        });
         term_view
     }
 
     // Infinate loop that is always updating the buffer.
     fn io_thread(data: Arc<Mutex<TermViewData>>) {
-        loop { // Do forever
-            let mut t = match data.lock() { // WRONG
+        loop {
+            // Do forever
+            let mut t = match data.lock() {
+                // WRONG
                 Ok(cont) => cont,
-                Err(e) => { // lock() is a blocking call. this is a fatal error
+                Err(e) => {
+                    // lock() is a blocking call. this is a fatal error
                     eprintln!("TermView IO thread recieved fatal error{}", e);
                     return;
-                }, 
+                }
             };
             t.read_char(); // this is probably blocking.
             drop(t); // mutex is cleared here
@@ -80,13 +85,13 @@ impl TermViewData {
     /// decends at the end of the line
     /// stalls at the end of the screen (no scrolling)
     fn move_cursor(&mut self, x: usize, y: usize) {
-        let w = self.size.x; 
+        let w = self.size.x;
         let h = self.size.y;
         let mut x = x;
-        let mut y = y; 
+        let mut y = y;
         if !(x < w) {
             x = 0;
-            y = y+1;
+            y = y + 1;
         }
 
         if !(y < h) {
@@ -100,8 +105,8 @@ impl TermViewData {
 
     /// Returns the character at the given X and Y coodinates
     fn get_char(&self, x: usize, y: usize) -> char {
-        self.buffer[(y*self.size.x)+x]
-        
+        self.buffer[(y * self.size.x) + x]
+
         // match self.buffer[(y*self.size.x)+x] {
         //     '\x00'...'\x0F' => 'c',
         //     '\x20'          => ' ',
@@ -113,7 +118,7 @@ impl TermViewData {
 
     fn handle_csi(&mut self, final_char: char) {
         //Get private flag
-        let first_char =  match self.cmd_string.chars().next() {
+        let first_char = match self.cmd_string.chars().next() {
             Some('?') => "?",
             _ => "",
         };
@@ -123,10 +128,10 @@ impl TermViewData {
             "" => &self.cmd_string,
             _ => &self.cmd_string[1..],
         };
-        
+
         // Split Parameters
         let args: Vec<&str> = cmd.split(|c| c == ';' || c == ':').collect();
-        
+
         //Cast what's left into integers
         let mut i_args: Vec<Option<i32>> = Vec::new();
         for x in args {
@@ -137,17 +142,23 @@ impl TermViewData {
                     Ok(i) => {
                         let t: i32 = i;
                         Some(t)
-                    },
+                    }
                     Err(_) => None,
                 };
                 i_args.push(f);
-                
             }
         }
-        
+
         // Match on Command Character
         match (first_char, i_args.len(), final_char) {
-            _ => eprintln!("Unknown command code: {}[{}]{} from string {}{}", first_char, i_args.len(), final_char, &self.cmd_string, final_char),
+            _ => eprintln!(
+                "Unknown command code: {}[{}]{} from string {}{}",
+                first_char,
+                i_args.len(),
+                final_char,
+                &self.cmd_string,
+                final_char
+            ),
         }
     }
 
@@ -157,27 +168,28 @@ impl TermViewData {
         let y = self.cursor.y;
         // matching corner cases here
         match self.state {
-            TermViewState::Printing => { 
+            TermViewState::Printing => {
                 match c {
-                    '\x00' => self.move_cursor(x+1, y), // NULL interpet as space
-                    '\x01'...'\x06' => (), // nonprinting, ignore
-                    '\x07' => (), // TODO: BELL
-                    '\x08' => self.move_cursor(x-1, y), // backspace
-                    '\x09' => (), // TODO: Tabs
-                    '\x0A' => self.move_cursor(0, y+1), // newline 
-                    '\x10' => (), // TODO: Find out what a vertical tab is
-                    '\x0C' => (), // nonprinting, ignore
-                    '\x0D' => self.move_cursor(0, y), // carriage return
-                    '\x0E'...'\x1A' => (), // nonprinting, ignore
+                    '\x00' => self.move_cursor(x + 1, y), // NULL interpet as space
+                    '\x01'...'\x06' => (),                // nonprinting, ignore
+                    '\x07' => (),                         // TODO: BELL
+                    '\x08' => self.move_cursor(x - 1, y), // backspace
+                    '\x09' => (),                         // TODO: Tabs
+                    '\x0A' => self.move_cursor(0, y + 1), // newline
+                    '\x10' => (),                         // TODO: Find out what a vertical tab is
+                    '\x0C' => (),                         // nonprinting, ignore
+                    '\x0D' => self.move_cursor(0, y),     // carriage return
+                    '\x0E'...'\x1A' => (),                // nonprinting, ignore
                     '\x1B' => self.state = TermViewState::ESC, //Jump ESC
-                    '\x0C'...'\x1F' => (), // nonprinting, ignore
-                    '\x7F' => (), // DEL, ignore
-                    _ => { // printing ascii and Unicode
-                        self.buffer[(y*self.size.x)+x] = c;
-                        self.move_cursor(x+1, y);
-                    }, 
+                    '\x0C'...'\x1F' => (),                // nonprinting, ignore
+                    '\x7F' => (),                         // DEL, ignore
+                    _ => {
+                        // printing ascii and Unicode
+                        self.buffer[(y * self.size.x) + x] = c;
+                        self.move_cursor(x + 1, y);
+                    }
                 };
-            },
+            }
 
             TermViewState::ESC => {
                 match c {
@@ -187,37 +199,38 @@ impl TermViewData {
                     '\x5B' => {
                         self.cmd_string = String::from("");
                         self.state = TermViewState::CSI;
-                    },
+                    }
                     // ]
                     // TODO OSI
-
-                    _ => { // Return to printing and then output char
+                    _ => {
+                        // Return to printing and then output char
                         self.state = TermViewState::Printing;
                         self.put_char(c);
-                    },
+                    }
                 };
-            },
+            }
 
             TermViewState::CSI => {
                 match c {
                     '\x00'...'\x1F' => (), // TODO break C0 into a function
-                    
+
                     '\x30'...'\x3F' => self.cmd_string.push(c), //Parameter Bytes - add too string
                     '\x40'...'\x7E' => {
                         self.handle_csi(c); // CALL
                         self.cmd_string = String::from("");
                         self.state = TermViewState::Printing; //RESET
-                    },
+                    }
 
-                    _ => (), // Ignore everything else. 
+                    _ => (), // Ignore everything else.
                 };
-            },
+            }
         }
     }
 
     /// Helper function to print an entire slice at once.
     pub fn put_str(&mut self, s: &str) {
-        for c in s.chars() { // iterate
+        for c in s.chars() {
+            // iterate
             self.put_char(c); // print
         }
     }
@@ -225,11 +238,12 @@ impl TermViewData {
     /// Read next byte from rx file handle
     fn read_char(&mut self) {
         let c = self.rx.next(); // Get next char from input
-        // is next a blocking call?
-        // skip errors
-        let c = match c { // WRONG
+                                // is next a blocking call?
+                                // skip errors
+        let c = match c {
+            // WRONG
             Some(Ok(r)) => r,
-            Some(Err(_)) => return, // This indicates a more serious IO error. 
+            Some(Err(_)) => return, // This indicates a more serious IO error.
             None => return,
         };
 
@@ -246,28 +260,28 @@ impl TermViewData {
         for x in 0..w {
             for y in 0..h {
                 // print the character at the current x,y
-                printer.print((x,y), &self.get_char(x, y).to_string());
+                printer.print((x, y), &self.get_char(x, y).to_string());
             }
         }
         // Print Debug information on one extra line.
-        printer.print((0,h+1), &format!("len {}", self.buffer.len()))
+        printer.print((0, h + 1), &format!("len {}", self.buffer.len()))
     }
 
     fn get_size(&mut self) -> Vec2 {
         // +2 here adds an extra 2 lines for debug info at the bottom of the term.
-        Vec2::new(self.size.x, self.size.y+2)
+        Vec2::new(self.size.x, self.size.y + 2)
     }
 }
 
 // The implementation is pretty much stubbed out
-// and redirected to functions inside of the TermViewData 
+// and redirected to functions inside of the TermViewData
 // where the fields are safely mutexed.
 impl view::View for TermView {
     fn draw(&self, printer: &Printer) {
         let t = self.c.lock();
         match t {
             Ok(i) => i.draw(printer),
-            Err(e) => printer.print((0,0), e.description()),
+            Err(e) => printer.print((0, 0), e.description()),
         }
     }
 
