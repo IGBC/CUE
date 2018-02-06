@@ -1,5 +1,9 @@
 extern crate cursive;
+#[macro_use] extern crate log;
+extern crate simplelog;
 extern crate nix;
+
+use simplelog::*;
 
 use cursive::Cursive;
 use cursive::views::Dialog;
@@ -10,7 +14,7 @@ use cursive::traits::Boxable;
 
 use nix::pty;
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 
 use std::process::*;
 use std::os::unix::io::FromRawFd;
@@ -21,6 +25,23 @@ mod views;
 use views::term::TermView;
 
 fn main() {
+    let mut opts = OpenOptions::new();
+    opts.append(true);
+    opts.create_new(true);
+    CombinedLogger::init(
+        vec![
+            WriteLogger::new(LevelFilter::Warn, Config::default(), opts.open("cue.errors.log").unwrap()),                        
+            WriteLogger::new(LevelFilter::Info, Config::default(), opts.open("cue.info.log").unwrap()),
+            WriteLogger::new(LevelFilter::Trace, Config::default(), opts.open("cue.debug.log").unwrap()),
+        ]
+    ).unwrap();
+    info!("Starting C.U.E. - Hello World");
+
+    error!("Bright red error");
+    info!("This only appears in the log file");
+    debug!("This level is currently not enabled for any logger");
+    //WriteLogger::init(LevelFilter::Off, Config::default(), File::create("CUE.log").unwrap()).unwrap();
+    
     let mut siv = Cursive::new();
 
     siv.set_fps(30);
