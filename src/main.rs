@@ -45,20 +45,21 @@ fn main() {
     let mut siv = Cursive::new();
 
     siv.set_fps(30);
-    
+
     // Create a dialog with an edit text and a button.
     // The user can either hit the <Ok> button,
     // or press Enter on the edit text.
-    siv.add_layer(Dialog::new()
+    siv.add_layer(
+        Dialog::new()
         .title("Command")
         //.padding((1, 1, 1, 0))
         .content(EditView::new()
             .on_submit(run_cmd)
             .with_id("name")
             .fixed_width(20)
-            )
-        );
-            
+            ),
+    );
+
     //siv.add_layer(Dialog::text("...").title("I'm speechless")
     //.button("Quit", |s| s.add_layer(Dialog::info("You Can't Quit. This is your life!"))));
 
@@ -67,15 +68,15 @@ fn main() {
 
 fn run_cmd(s: &mut Cursive, cmd: &str) {
     let cmd: Vec<&str> = cmd.split_whitespace().collect();
-    
 
-    let p = pty::openpty(None,None).unwrap();
+    let p = pty::openpty(None, None).unwrap();
     let a = unsafe {
-        Command::new(cmd[0]).args(&cmd[1..])
-                 .stdout(Stdio::from_raw_fd(p.slave))
-                 .stderr(Stdio::from_raw_fd(p.slave))
-                 .stdin (Stdio::piped())
-                 .spawn()
+        Command::new(cmd[0])
+            .args(&cmd[1..])
+            .stdout(Stdio::from_raw_fd(p.slave))
+            .stderr(Stdio::from_raw_fd(p.slave))
+            .stdin(Stdio::piped())
+            .spawn()
     };
 
     let a = a.unwrap();
@@ -83,7 +84,7 @@ fn run_cmd(s: &mut Cursive, cmd: &str) {
     let outfile = unsafe { File::from_raw_fd(p.master) };
     let infile = outfile.try_clone().expect("file didn't clone");
 
-    let t = TermView::new(80,40,outfile,infile);
+    let t = TermView::new(80, 40, outfile, infile);
 
     s.add_layer(Dialog::around(t).button("Quit", |s| s.quit()));
 
@@ -91,8 +92,8 @@ fn run_cmd(s: &mut Cursive, cmd: &str) {
     // //let mut out = out.bytes();
     // // loop {
     // //     let c = out.next().unwrap().unwrap();
-    // //     io::stdout().write(&[c]);        
-    // // } 
+    // //     io::stdout().write(&[c]);
+    // // }
     // out.read_to_string(&mut buf);
     // show_term(s, &buf);
 }
