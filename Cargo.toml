@@ -1,10 +1,5 @@
-[package]
-name = "cue"
-version = "0.1.0"
-authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
-
-[dependencies]
-cursive = { git = "https://github.com/gyscos/Cursive" }
-nix = "0.10.0"
-simplelog = "^0.5.0"
-log = "0.4.1"
+[workspace]
+members = [
+    "cue",
+    "bifrost",
+]

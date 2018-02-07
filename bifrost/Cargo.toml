@@ -1,0 +1,6 @@
+[package]
+name = "bifrost"
+version = "0.1.0"
+authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
+
+[dependencies]
