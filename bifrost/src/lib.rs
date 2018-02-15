@@ -12,3 +12,4 @@ mod tests {
 }
 
 pub mod windows;
+pub mod bifrost;
