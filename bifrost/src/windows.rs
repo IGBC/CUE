@@ -5,7 +5,8 @@ use self::cursive::vec::Vec2;
 
 #[derive(Debug)]
 struct WindowContext {
-    
+    title: &str,
+
 }
 
 impl WindowContext {
@@ -17,8 +18,8 @@ impl WindowContext {
 
     /// Change window title.
     /// Changes Xterm window title in standalone mode.
-    pub fn set_title(title: &str) {
-        panic!("Not Implemented");
+    pub fn set_title(mut &self title: &str) {
+        self.title = title;
     }
 
     /// Add application wide event listener.
