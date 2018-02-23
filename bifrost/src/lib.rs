@@ -11,4 +11,9 @@ mod tests {
     }
 }
 
-pub mod windows;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate rmp_serde;
+
+pub mod transport;

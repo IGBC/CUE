@@ -5,3 +5,6 @@ authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
 
 [dependencies]
 cursive = { git = "https://github.com/gyscos/Cursive" }
+serde = "1.0"
+serde_derive = "1.0"
+rmp-serde = "0.13"
