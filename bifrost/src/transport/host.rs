@@ -1,43 +1,53 @@
+use super::common::{ClientCmd, SocketManager, MsgPack};
 use std::thread;
+use std::sync::{Arc, Mutex};
 use std::os::unix::net::{UnixStream, UnixListener};
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
 
-///! This struct contains the contextual data for the Socket
-///! libBiFrost connects too. This is a service socket, as such
+///! This struct contains the contextual data for the socket
+///! libBiFrost connects to. This is a service socket, as such
 ///! spawns a new thread to handle each new connection.
 pub struct BiFrostParentEndpoint {
-    fname: &str,
+    //fname: &str,
     socket: UnixListener,
     clients: usize,
 }
 
-let mut globalEndpoint: Option<ARC<Mutex<BiFrostParentEndpoint>>>=None;
+struct HostSession {
+    // Session token created at start.
+    token: u32,
+    // Connection to socket channel
+    sm_tx: Sender<Vec<u8>>,
+    sm_rx: Receiver<Vec<u8>>,
+}
+
 
 impl BiFrostParentEndpoint {
-    pub fn init() {
-        if globalEndpoint == Some(_) {
-            warn!("attempt to create duplicate BiFrostEndpoint blocked. You have a bug.");
-            return
-        }
+    /// Initialise a new service socket Listener,
+    /// return the struct, in a state ready for connections
+    pub fn init() -> Arc<Mutex<Self>> {
+        //TODO: use a more inteligent path for the socket
         let fname = "/tmp/bifrost";
-        info!("creating socket at {}", fname);
-        let socket = UnixListener::bind(fname).unwrap();
-        globalEndpoint = Some(Arc::new(Mutex::new(BiFrostParentEndpoint{
+        // Generate a socket at the desired path.
+        let socket = UnixListener::bind(fname).unwrap(); //TODO: error handling.
+        
+        let endpoint = Arc::new(Mutex::new(BiFrostParentEndpoint{
             fname,
             socket,
-            clients = 0,
-        })))
-        thread::spawn(move || Self::accept_loop(Arc::clone(&globalEndpoint)));
+            clients: 0,
+        }));
+        thread::spawn(move || Self::accept_loop(Arc::clone(&endpoint)));
+        endpoint
     }
 
     fn accept_loop(data: Arc<Mutex<BiFrostParentEndpoint>>) {
-        info!("API socket listener started");
         loop {
             // Do forever
             let mut t = match data.lock() {
                 Ok(cont) => cont,
                 Err(e) => {
                     // lock() is a blocking call. this is a fatal error
-                    error!("API accept loop thread recieved fatal error: {}", e);
                     return;
                 }
             };
@@ -48,10 +58,10 @@ impl BiFrostParentEndpoint {
                         /* connection succeeded */
                         thread::spawn(|| Self::client_handler(Arc::clone(&data), stream));
                         t.clients += 1;
-                    }
+                    },
                     Err(err) => {
-                        error!("Socket connection failed with error: {}", err);
-                    }
+
+                    },
                 }
             }
             drop(t); // mutex is cleared here
@@ -59,7 +69,6 @@ impl BiFrostParentEndpoint {
     }
 
     fn client_handler(data: Arc<Mutex<BiFrostParentEndpoint>>, stream: UnixStream) {
-        info!("Client connected from {}", stream.peer_addr());
-        
+
     }
 }

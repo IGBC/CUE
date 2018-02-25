@@ -3,7 +3,6 @@ use std::path::Path;
 use std::os::unix::net::UnixStream;
 use rmp_serde::decode;
 use serde::de::DeserializeOwned;
-use std::net::Shutdown;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc;
 use std::thread;
@@ -43,7 +42,7 @@ impl ClientSession {
         };
 
         // Initialise the session with the host:
-        let cmd = ClientCmd::InitSession(app_name.to_owned(), 0, 1000);
+        let cmd = ClientCmd::InitSession(app_name.to_owned(), 0, 1000); //TODO: PID, UID
         let token = session.send::<u32>(&cmd).unwrap();
         // add token back to session and return it.
         session.token = token;
