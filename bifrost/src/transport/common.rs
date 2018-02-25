@@ -11,17 +11,17 @@ use std::time::Duration;
 /// SocketManager
 /// multiplexes bidirectional channel opperating on top of the socket.
 /// Uses headers to key the direction of data, and communicate data length.
-struct SocketManager {
+pub struct SocketManager {
     // True if being used in CUE, False if being used in BiFrost.
     // Used to set the keying on packet headers. 
-    is_host: bool,
+    pub is_host: bool,
     // The actual socket. We own this.
-    socket: UnixStream,
+    pub socket: UnixStream,
     // Channel Back to reality.
-    tx: Sender<Vec<u8>>,
-    rx: Receiver<Vec<u8>>,
+    pub tx: Sender<Vec<u8>>,
+    pub rx: Receiver<Vec<u8>>,
     // Callback fired when a new command packet comes in.
-    incoming_callback: Fn(Vec<u8>) -> Vec<u8>,
+    pub incoming_callback: fn(Vec<u8>) -> Vec<u8>,
 }
 
 /// Final Packet Format With Header.
@@ -35,7 +35,7 @@ struct Packet {
 impl MsgPack for Packet{}
 
 impl SocketManager {
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         // initially set the socket to nonblocking with a 0.5µs timeout
         // *important* if the socket blocks polling on the channel will stop.
         self.socket.set_read_timeout(Some(Duration::new(0, 500))).expect("Couldn't set read timeout");
