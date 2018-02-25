@@ -1,4 +1,4 @@
-use super::common::ClientCmd;
+use super::common::{ClientCmd, MsgPack};
 use std::path::Path;
 use std::os::unix::net::UnixStream;
 use rmp_serde::decode::{from_read, Error};
