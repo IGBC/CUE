@@ -5,11 +5,16 @@ use rmp_serde::decode::{from_read, Error};
 use serde::de::DeserializeOwned;
 use std::io::Write;
 use std::net::Shutdown;
+use std::sync::mpsc::{Sender, Receiver};
 
 #[derive(Debug)]
 struct ClientSession {
-    socket: UnixStream,
+    // Session token provided by CUE.
     token: u32,
+    socket: UnixStream,
+    // Connection to socket channel
+    //tx: Sender<Vec<u8>>,
+    //rx: Receiver<Vec<u8>>,
 }
 
 impl ClientSession {
@@ -42,8 +47,10 @@ impl ClientSession {
 
     }
     
-    pub fn send_notification()
-    SendNotification(u32, String), // token, text.
+    pub fn send_notification() {
+        
+    }
+    //SendNotification(u32, String), // token, text.
 
     fn send<T>(socket: &mut UnixStream, cmd: &ClientCmd) -> Result<T, Error> 
     where
