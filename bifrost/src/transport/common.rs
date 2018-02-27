@@ -36,61 +36,64 @@ impl MsgPack for Packet{}
 
 impl SocketManager {
     pub fn run(&mut self) {
+        loop {
+            self.poll();
+        }
+    }
+
+    pub fn poll(&mut self) {
         // initially set the socket to nonblocking with a 0.5µs timeout
         // *important* if the socket blocks polling on the channel will stop.
         self.socket.set_read_timeout(Some(Duration::new(0, 500))).expect("Couldn't set read timeout");
         
-        // Enter thread main.
-        loop {
-            // first check for an outbound command from the channel
-            match self.rx.try_recv() {                
-                // if it exists forward it to the peer process
-                Ok(data) => self.send(data, false),
-                // no data nothing to do, move on
-                Err(TryRecvError::Empty) => (),
-                // channel is disconnected then the something is wrong, exit.
-                Err(TryRecvError::Disconnected) => return,
-            }
-            // check for inbound data from the peer.
-            match from_read::<&UnixStream, Packet>(&self.socket) {
-                Ok(packet) => {
-                    let data = packet.payload;
-                    let resp = packet.is_resp;
-                    match resp {
-                        // There is no state in this adapter, the function should
-                        // be blocking for the data, so just send it off.
-                        true => self.tx.send(data).unwrap(),
-                        // New Inbound Command: Fire the callback. Lack of command 
-                        // Seqencing means we can probably get away with doing it in
-                        // this thread, as long as it doesn't run too long.
-
-                        // New thread or no new thread the peer is blocking RN waiting 
-                        // for the response so lets skip the thread and just do the callback.
-                        false => {
-                            // run the callback
-                            let resp = (self.incoming_callback)(data);
-                            // Bye, Bye. Don't come back!
-                            self.send(resp, true);
-                        },
-                    };
-                },
-
-                // The Below *SHOULD* ignore timeout errors (which are expected)
-                // and panic on all other errors. The proceedure for properly 
-                // handling these errors is not yet defined.
-                Err(Error::InvalidMarkerRead(e)) => {
-                    if !(e.kind() == ErrorKind::TimedOut) {
-                        panic!("Recieved Socket Error {:?}", e.kind());
-                    }
-                },
-                Err(Error::InvalidDataRead(e)) => {
-                    if !(e.kind() == ErrorKind::TimedOut) {
-                        panic!("Recieved Socket Error {:?}", e.kind());
-                    }
-                },
-                _ => panic!("Recieved Socket Error"),
-            };
+        // check for an outbound command from the channel
+        match self.rx.try_recv() {                
+            // if it exists forward it to the peer process
+            Ok(data) => self.send(data, false),
+            // no data nothing to do, move on
+            Err(TryRecvError::Empty) => (),
+            // channel is disconnected then the something is wrong, exit.
+            Err(TryRecvError::Disconnected) => return,
         }
+        // check for inbound data from the peer.
+        match from_read::<&UnixStream, Packet>(&self.socket) {
+            Ok(packet) => {
+                let data = packet.payload;
+                let resp = packet.is_resp;
+                match resp {
+                    // There is no state in this adapter, the function should
+                    // be blocking for the data, so just send it off.
+                    true => self.tx.send(data).unwrap(),
+                    // New Inbound Command: Fire the callback. Lack of command 
+                    // Seqencing means we can probably get away with doing it in
+                    // this thread, as long as it doesn't run too long.
+
+                    // New thread or no new thread the peer is blocking RN waiting 
+                    // for the response so lets skip the thread and just do the callback.
+                    false => {
+                        // run the callback
+                        let resp = (self.incoming_callback)(data);
+                        // Bye, Bye. Don't come back!
+                        self.send(resp, true);
+                    },
+                };
+            },
+
+            // The Below *SHOULD* ignore timeout errors (which are expected)
+            // and panic on all other errors. The proceedure for properly 
+            // handling these errors is not yet defined.
+            Err(Error::InvalidMarkerRead(e)) => {
+                if !(e.kind() == ErrorKind::TimedOut) {
+                    panic!("Recieved Socket Error {:?}", e.kind());
+                }
+            },
+            Err(Error::InvalidDataRead(e)) => {
+                if !(e.kind() == ErrorKind::TimedOut) {
+                    panic!("Recieved Socket Error {:?}", e.kind());
+                }
+            },
+            _ => panic!("Recieved Socket Error"),
+        };
     }
 
     fn send(&mut self, payload: Vec<u8>, is_resp: bool) {

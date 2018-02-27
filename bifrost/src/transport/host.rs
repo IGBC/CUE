@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::os::unix::net::{UnixStream, UnixListener};
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc;
+use std::collections::HashMap;
 
 ///! This struct contains the contextual data for the socket
 ///! libBiFrost connects to. This is a service socket, as such
@@ -11,17 +12,19 @@ use std::sync::mpsc;
 pub struct BiFrostParentEndpoint {
     //fname: &str,
     socket: UnixListener,
-    clients: usize,
+    clients: HashMap<u32 , HostSession>,
+    
 }
 
 struct HostSession {
+    // Socket manager.
+    manager: SocketManager,
     // Session token created at start.
     token: u32,
     // Connection to socket channel
     sm_tx: Sender<Vec<u8>>,
     sm_rx: Receiver<Vec<u8>>,
 }
-
 
 impl BiFrostParentEndpoint {
     /// Initialise a new service socket Listener,
@@ -33,13 +36,61 @@ impl BiFrostParentEndpoint {
         let socket = UnixListener::bind(fname).unwrap(); //TODO: error handling.
         
         let endpoint = Arc::new(Mutex::new(BiFrostParentEndpoint{
-            fname,
             socket,
-            clients: 0,
+            clients: HashMap::new(),
         }));
         thread::spawn(move || Self::accept_loop(Arc::clone(&endpoint)));
         endpoint
     }
+
+    fn accept_connections(&mut self) {
+        // accept connections and process them.
+        for stream in self.socket.incoming() {
+            match stream {
+                Ok(stream) => {
+                    /* connection succeeded */
+                    let token = 1; //TODO: random tokens.
+
+                    // Create channel pair for communications, 
+                    let (send_tx, send_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+                    let (recv_tx, recv_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+
+                    // Build socket manager.
+                    let mut manager = SocketManager {
+                        is_host: false,
+                        socket: stream,
+                        tx: recv_tx,
+                        rx: send_rx,
+                        incoming_callback: Self::client_handler,
+                    };
+                    
+                    // Create session and save into client's map.
+                    let mut session = HostSession {
+                        manager,
+                        token,
+                        sm_tx: send_tx,
+                        sm_rx: recv_rx,
+                    };
+                    self.clients.insert(token, session);
+                },
+                Err(err) => {
+                    /* No new connections */
+                },
+            }
+        }
+    }
+
+    /// Polls all current sessions for activity and runs any
+    /// pending transactions.
+    fn poll_clients(&mut self) {
+        for i in self.clients.iter_mut() {
+            i.manager.poll();
+        }
+    }
+
+    fn client_handler(i: Vec<u8>) -> Vec<u8> {
+        return i;
+    }    
 
     fn accept_loop(data: Arc<Mutex<BiFrostParentEndpoint>>) {
         loop {
@@ -51,24 +102,8 @@ impl BiFrostParentEndpoint {
                     return;
                 }
             };
-            // accept connections and process them, spawning a new thread for each one
-            for stream in t.socket.incoming() {
-                match stream {
-                    Ok(stream) => {
-                        /* connection succeeded */
-                        thread::spawn(|| Self::client_handler(Arc::clone(&data), stream));
-                        t.clients += 1;
-                    },
-                    Err(err) => {
-
-                    },
-                }
-            }
+            
             drop(t); // mutex is cleared here
         }
-    }
-
-    fn client_handler(data: Arc<Mutex<BiFrostParentEndpoint>>, stream: UnixStream) {
-
     }
 }
