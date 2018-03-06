@@ -97,23 +97,23 @@ impl BiFrostParentEndpoint {
     /// This is running on the thread calling manager.poll()
     /// So It better not block
     fn client_handler(i: Vec<u8>) -> Vec<u8> {
-        let cmd = ClientCmd::from_mp(i);
+        let cmd = ClientCmd::from_mp(&i);
         match cmd {
-            InitSession(app_name, pid, uid) { 
+            ClientCmd::InitSession(app_name, pid, uid) => { 
                 /* we have to find the token and return it. 
                  * This is impossible */
                 },
-            CloseSession(token) {
+            ClientCmd::CloseSession(token) => {
                 /* find all resources used by this token and remove them */
             },
-            CreateWindow(token, title, w, h) {
+            ClientCmd::CreateWindow(token, title, w, h) => {
                 /* This has to talk to rendering... somehow */
             },
-            SetWindowTitle(token, title) {
+            ClientCmd::SetWindowTitle(token, title) => {
                 /* this is missing the f***ing window ID */
             },
-            DeleteWindow(token, window_id) {}, // at this point F*** IT!
-            SendNotification(token, text) {
+            ClientCmd::DeleteWindow(token, window_id) => {}, // at this point F*** IT!
+            ClientCmd::SendNotification(token, text) => {
                 /* Well technically we have to build a notification system first */
             },
         }

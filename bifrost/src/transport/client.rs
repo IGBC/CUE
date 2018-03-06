@@ -1,4 +1,4 @@
-use super::common::{ClientCmd, SocketManager, MsgPack};
+use super::common::{ClientCmd, HostReq, SocketManager, MsgPack};
 use std::path::Path;
 use std::os::unix::net::UnixStream;
 use rmp_serde::decode;
@@ -101,13 +101,13 @@ impl ClientSession {
     /// but letting it run too slow will slow app performance as this IO
     /// thread is also forwarding cursive events into the app.
     fn host_event_callback(i: Vec<u8>) -> Vec<u8> {
-        let req = HostReq::from_mp(i);
+        let req = HostReq::from_mp(&i);
         match req {
-            CloseSession(token), // token
+            HostReq::CloseSession(token) => (), // token
             
             // TODO: Talk to the cursive backend.
-            DrawWindow(window_id),   // windowID
-            LayoutWindow(window_id), // windowID
+            HostReq::DrawWindow(window_id) => (),   // windowID
+            HostReq::LayoutWindow(window_id) => (), // windowID
         }
         return i;
     }
