@@ -20,8 +20,8 @@ pub struct SocketManager {
     // Channel Back to reality.
     pub tx: Sender<Vec<u8>>,
     pub rx: Receiver<Vec<u8>>,
-    // Callback fired when a new command packet comes in.
-    pub incoming_callback: fn(Vec<u8>) -> Vec<u8>,
+    // closure fired when a new command packet comes in.
+    pub incoming_callback: Box<FnMut(Vec<u8>) -> Vec<u8> + Send + Sync>,
 }
 
 /// Final Packet Format With Header.

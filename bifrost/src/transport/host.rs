@@ -64,7 +64,7 @@ impl BiFrostParentEndpoint {
                         socket: stream,
                         tx: recv_tx,
                         rx: send_rx,
-                        incoming_callback: Self::client_handler,
+                        incoming_callback: Box::new(|i| Self::client_handler(i)),
                     };
                     
                     // Create session and save into client's map.

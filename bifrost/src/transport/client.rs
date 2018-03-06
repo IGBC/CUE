@@ -30,7 +30,7 @@ impl ClientSession {
             socket,
             tx: recv_tx,
             rx: send_rx,
-            incoming_callback: Self::host_event_callback,
+            incoming_callback: Box::new(|i| Self::host_event_callback(i)),
         };
         thread::spawn(move || manager.run());
 
