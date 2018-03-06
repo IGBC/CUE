@@ -90,7 +90,25 @@ impl ClientSession {
         return ret;
     }
 
+    /// This handles events coming from the CUE host process
+    /// This blocks the socketManager's run thread, so you cannot
+    /// issue any commands to the host while the callback is running
+    /// as there is no resource to send the messages. 
+    ///
+    /// Blocking on this thread is not ideal, but this is what will 
+    /// trigger BiFrost drawing, so this IO call is also the drawing thread,
+    /// by design blocking on the drawing thread is par for the course, 
+    /// but letting it run too slow will slow app performance as this IO
+    /// thread is also forwarding cursive events into the app.
     fn host_event_callback(i: Vec<u8>) -> Vec<u8> {
+        let req = HostReq::from_mp(i);
+        match req {
+            CloseSession(token), // token
+            
+            // TODO: Talk to the cursive backend.
+            DrawWindow(window_id),   // windowID
+            LayoutWindow(window_id), // windowID
+        }
         return i;
     }
 }

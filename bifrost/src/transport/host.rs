@@ -39,7 +39,10 @@ impl BiFrostParentEndpoint {
             socket,
             clients: HashMap::new(),
         }));
-        thread::spawn(move || Self::accept_loop(Arc::clone(&endpoint)));
+
+
+
+        //thread::spawn(move || Self::accept_loop(Arc::clone(&endpoint)));
         endpoint
     }
 
@@ -49,7 +52,7 @@ impl BiFrostParentEndpoint {
             match stream {
                 Ok(stream) => {
                     /* connection succeeded */
-                    let token = 1; //TODO: random tokens.
+                    let token = 1; //TODO: UUID tokens.
 
                     // Create channel pair for communications, 
                     let (send_tx, send_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
@@ -83,12 +86,38 @@ impl BiFrostParentEndpoint {
     /// Polls all current sessions for activity and runs any
     /// pending transactions.
     fn poll_clients(&mut self) {
-        for i in self.clients.iter_mut() {
-            i.manager.poll();
+        // iterate sessions
+        for (_, session) in self.clients.iter_mut() {
+            // for each session, poll
+            session.manager.poll();
         }
     }
 
+    /// Callback from SocketManager - Recieves ClientCmd
+    /// This is running on the thread calling manager.poll()
+    /// So It better not block
     fn client_handler(i: Vec<u8>) -> Vec<u8> {
+        let cmd = ClientCmd::from_mp(i);
+        match cmd {
+            InitSession(app_name, pid, uid) { 
+                /* we have to find the token and return it. 
+                 * This is impossible */
+                },
+            CloseSession(token) {
+                /* find all resources used by this token and remove them */
+            },
+            CreateWindow(token, title, w, h) {
+                /* This has to talk to rendering... somehow */
+            },
+            SetWindowTitle(token, title) {
+                /* this is missing the f***ing window ID */
+            },
+            DeleteWindow(token, window_id) {}, // at this point F*** IT!
+            SendNotification(token, text) {
+                /* Well technically we have to build a notification system first */
+            },
+        }
+        
         return i;
     }    
 
