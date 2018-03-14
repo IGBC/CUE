@@ -50,7 +50,7 @@ impl ClientSession {
     }
 
     pub fn close_session(mut self) { // Consumes session.
-        let cmd = ClientCmd::CloseSession(self.token);
+        let cmd = ClientCmd::CloseSession();
         self.send::<()>(&cmd).unwrap();
         //self.socket.shutdown(Shutdown::Both).unwrap();
     }
@@ -103,7 +103,7 @@ impl ClientSession {
     fn host_event_callback(i: Vec<u8>) -> Vec<u8> {
         let req = HostReq::from_mp(&i);
         match req {
-            HostReq::CloseSession(token) => (), // token
+            HostReq::CloseSession() => (),
             
             // TODO: Talk to the cursive backend.
             HostReq::DrawWindow(window_id) => (),   // windowID

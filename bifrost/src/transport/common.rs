@@ -112,12 +112,12 @@ impl SocketManager {
 /// Data Class, Enumerates Commands that BiFrost Can send to CUE
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ClientCmd {
-    InitSession(String, usize, usize), // Appname, PID, UID
-    CloseSession(u32), // token
-    CreateWindow(u32, String, u32, u32), // token, title, width, height
-    SetWindowTitle(u32, String), // token, title
+    InitSession(String, usize, usize), // (Appname, PID, UID) returns u32
+    CloseSession(), // () returns ()
+    CreateWindow(u32, String, u32, u32), // (token, title, width, height) returns ?
+    SetWindowTitle(u32, String), // title returns ()
     DeleteWindow(u32, u32), // token, windowID
-    SendNotification(u32, String), // token, text.
+    SendNotification(String), // text returns ().
 }
 
 impl MsgPack for ClientCmd{}
@@ -125,7 +125,7 @@ impl MsgPack for ClientCmd{}
 /// Data Class, Enumerates Requests that CUE can make to BiFrost
 #[derive(Serialize, Deserialize, Debug)]
 pub enum HostReq {
-    CloseSession(u32), // token
+    CloseSession(), // 
     DrawWindow(u32), // windowID
     LayoutWindow(u32), // windowID
 }
