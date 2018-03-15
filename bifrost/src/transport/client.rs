@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use std::thread;
 
 #[derive(Debug)]
-struct ClientSession {
+pub struct ClientSession {
     // Session token provided by CUE.
     token: u32,
     // Connection to socket channel

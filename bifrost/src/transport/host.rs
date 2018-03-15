@@ -106,8 +106,8 @@ impl BiFrostParentEndpoint {
 
                     self.clients.insert(token, (manager, arc));
                 },
-                Err(err) => {
-                    /* No new connections */
+                Err(_) => {
+                    /* No new connections - This is not an error */
                 },
             }
         }
