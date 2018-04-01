@@ -26,8 +26,8 @@ impl Window {
     ///
     /// Users rarely have to call this directly.
     pub fn clear(&self) {
-        self.backend
-            .clear(self.theme.palette[theme::PaletteColor::Background]);
+        //self.backend
+        //    .clear(self.theme.palette[theme::PaletteColor::Background]);
     }
 
 
