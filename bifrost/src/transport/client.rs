@@ -55,7 +55,7 @@ impl ClientSession {
         //self.socket.shutdown(Shutdown::Both).unwrap();
     }
     
-    pub fn create_window(mut self, title: &str, width: u32, height: u32) {
+    pub fn create_window(&mut self, title: &str, width: u32, height: u32) {
         let cmd = ClientCmd::CreateWindow(self.token, title.to_owned(), width, height);
         self.send::<u32>(&cmd).unwrap();
         // TODO: Create a window Contex And return it.
@@ -64,7 +64,7 @@ impl ClientSession {
         //CreateWindow(u32, String, u32, u32), // token, title, width, height
         //SetWindowTitle(u32, String), // token, title
         //DeleteWindow(u32, u32), // token, windowID
-    
+
 
     }
     
@@ -106,8 +106,16 @@ impl ClientSession {
             HostReq::CloseSession() => (),
             
             // TODO: Talk to the cursive backend.
-            HostReq::DrawWindow(window_id) => (),   // windowID
-            HostReq::LayoutWindow(window_id) => (), // windowID
+            HostReq::DrawWindow(window_id) => {
+                // Look up window backend
+                // call draw and get drawingList
+                // return drawingList
+            },
+            HostReq::LayoutWindow(window_id) => (
+                // Look up window / backend
+                // secure mutiblity
+                // call layout
+            ),
         }
         return i;
     }

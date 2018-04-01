@@ -1,22 +1,21 @@
+use std::collections::HashMap;
+
 use cursive::backend;
 use cursive::theme;
 use cursive::view;
-use cursive::event::{Callback, Event, EventResult};
+use cursive::event::{Callback, Event};
 
-pub struct Window<R,B> where
-    R: view::View,
-    B: backend::Backend,
-{
+pub struct Window {
     theme: theme::Theme,
-    root_widget: R,
+    root_widget: Box<view::View>,
     application_callbacks: HashMap<Event, Vec<Callback>>,
-    backend: B,
+    backend: Box<backend::Backend>,
 }
 
-impl Window<R,B> {
-    pub fn new() -> Self {
-
-    }
+impl Window {
+    //pub fn new() -> Self {
+        // 
+    // }
 
     /// Returns the currently used theme.
     pub fn current_theme(&self) -> &theme::Theme {
