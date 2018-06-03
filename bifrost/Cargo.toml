@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["SEGFAULT <fakespamtrap@gmail.com>"]
 
 [dependencies]
-cursive = { git = "https://github.com/IGBC/Cursive" }
+cursive = { path = "../../Cursive" } # git = "https://github.com/IGBC/Cursive" }
 serde = "1.0"
 serde_derive = "1.0"
 rmp-serde = "0.13.7"

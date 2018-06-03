@@ -5,5 +5,7 @@ pub struct BiFrost {
 }
 
 impl BiFrost {
-    
+    pub fn create_window(&mut self) {
+        self.window_list.push(Window::new());
+    }
 }
